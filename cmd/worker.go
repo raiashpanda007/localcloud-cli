@@ -30,3 +30,7 @@ func init() {
 	workerCmd.AddCommand(workerStartCmd)
 	rootCmd.AddCommand(workerCmd)
 }
+
+func StartWorker() error {
+	// TODO: Connect to worker IPC and start the worker process
+}
