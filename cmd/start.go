@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"errors"
-
 	"github.com/spf13/cobra"
 )
 
@@ -12,9 +10,13 @@ var startCmd = &cobra.Command{
 	Long: `Start runs the master on this machine.
 
 The master coordinates connected machines, discovers workers, manages
-connections, and distributes workloads.`,
+connections, and distributes workloads.
+
+If a master daemon is already running, start reports it. If a worker daemon
+is running, start refuses; stop the worker first. Otherwise it launches the
+daemon as a master.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return errors.New("master does not run inside the cli")
+		return startNode(cmd.Context(), cmd.OutOrStdout(), "master")
 	},
 }
 

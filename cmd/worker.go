@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"errors"
-
 	"github.com/spf13/cobra"
 )
 
@@ -20,17 +18,17 @@ var workerStartCmd = &cobra.Command{
 	Short: "Start the worker on this machine",
 	Long: `Start runs the worker on this machine.
 
-The worker executes tasks assigned by the master.`,
+The worker executes tasks assigned by the master.
+
+If a worker daemon is already running, start reports it. If a master daemon
+is running, start refuses; stop the master first. Otherwise it launches the
+daemon as a worker.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return errors.New("worker does not run inside the cli")
+		return startNode(cmd.Context(), cmd.OutOrStdout(), "worker")
 	},
 }
 
 func init() {
 	workerCmd.AddCommand(workerStartCmd)
 	rootCmd.AddCommand(workerCmd)
-}
-
-func StartWorker() error {
-	// TODO: Connect to worker IPC and start the worker process
 }
