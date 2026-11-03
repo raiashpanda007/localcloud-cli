@@ -1,8 +1,8 @@
 # localcloud-cli
 
 `localcloud` is the command-line client for Local Cloud. It doesn't run the
-master or worker itself; it controls the **daemon** (`localcloud-daemon`)
-over a unix socket at `/tmp/daemon.sock`.
+master or worker itself; it controls the **daemon** (`localcloud-daemon`) over
+one unix socket per role.
 
 ## Development setup
 
@@ -25,38 +25,31 @@ cd localcloud-cli && go run . master start
 
 ## `localcloud master start` / `localcloud worker start`
 
-Only one daemon runs per machine. `start` asks it for its status over the
-socket and then:
+`start` first connects to the role's socket and reads the greeting the daemon
+sends on connect:
 
 | Daemon state | Result |
 | --- | --- |
-| Running as the requested role | Prints `This node is already running as <role> (pid N).`, exit 0 |
-| Running as the other role | Refuses and tells you to stop it first (`kill N`), exit 1 |
-| Not running (no socket, or a stale one) | Spawns the daemon detached, waits up to 5 s for it to answer, prints `Started <role> daemon (pid N)` |
+| Running as the requested role (its socket greets) | Prints `This node is already running as <role>.`, exit 0 |
+| Running as the other role | Refuses and tells you to stop it first, exit 1 |
+| Not running (no socket, or a stale one that refuses) | Spawns the daemon detached, waits up to 5 s for the greeting, prints `Started <role> daemon (pid N)` |
+
+Sockets (must match the daemon):
+
+| Role | Path |
+| --- | --- |
+| master | `/tmp/daemon-master.sock` |
+| worker | `/tmp/daemon-worker.sock` (the daemon doesn't open it yet, so worker checks only report "not running" until it does) |
+
+The greeting is `{"requestID":"","resource":"CLIENT","response":{"ID":"<uuid>"}}`
+with no trailing newline. `internals/networks/protocol.go` holds copies of the
+daemon's `IPCRequest`/`IPCResponse` structs, which must be kept in sync by hand.
 
 - The spawned daemon's logs are appended to `/tmp/localcloud-daemon.log`
   (`tail -f` it). Environment variables are passed through, e.g.
   `LOG_LEVEL=debug LOG_FORMAT=text localcloud master start`.
 - The daemon runs in its own session, so it keeps running after the CLI exits
   and Ctrl+C in the terminal doesn't stop it. Stop it with `kill <pid>`.
-- If a crashed daemon left a stale `/tmp/daemon.sock`, the daemon removes it
-  on startup. Until it does, run `rm -f /tmp/daemon.sock`.
-- If the daemon doesn't reply within 2 s, `start` fails instead of hanging.
-
-## IPC protocol
-
-Every message is one JSON object (`json.Marshal`) followed by `\n`, and each
-request gets exactly one response. The structs live in
-`internals/networks/protocol.go` and must match the daemon's.
-
-```
-→ {"type":"status"}
-← {"ok":true,"role":"master","pid":1234}
-← {"ok":false,"error":"unknown request type"}
-```
-
-To fake a daemon by hand:
-
-```sh
-nc -lU /tmp/daemon.sock      # then type a reply line after the request arrives
-```
+- If a daemon crashed and left a stale socket file, the connect is refused and
+  `start` spawns a new daemon, which then fails with "address already in use"
+  until the stale file is removed (`rm -f <socket path>`).

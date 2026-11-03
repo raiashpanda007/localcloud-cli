@@ -1,20 +1,33 @@
 package networks
 
-// Wire protocol between the CLI and the daemon over the unix socket.
-// Every message is a single-line JSON object (json.Marshal) followed by "\n".
-// One request gets exactly one response. Keep these structs in sync with the daemon.
+// These structs are copied by hand from localcloud-daemon/internal/shared/ipc/ipc.go.
+// Keep them in sync: the JSON tags are the wire format.
+
+type REQUEST_TYPE string
 
 const (
-	REQUEST_STATUS = "status"
+	GET    REQUEST_TYPE = "GET"
+	POST   REQUEST_TYPE = "POST"
+	PUT    REQUEST_TYPE = "PUT"
+	DELETE REQUEST_TYPE = "DELETE"
 )
 
-type Request struct {
-	Type string `json:"type"`
+type IPCRequest[T any] struct {
+	RequestID string       `json:"id"`
+	Resource  string       `json:"resource"`
+	Type      REQUEST_TYPE `json:"type"`
+	Payload   T            `json:"payload"`
 }
 
-type Response struct {
-	OK    bool   `json:"ok"`
-	Role  string `json:"role,omitempty"` // "master" | "worker"
-	PID   int    `json:"pid,omitempty"`
-	Error string `json:"error,omitempty"`
+type IPCResponse[T any] struct {
+	RequestID string `json:"requestID"`
+	Resource  string `json:"resource"`
+	Error     string `json:"error,omitempty"`
+	Response  T      `json:"response,omitempty"`
+}
+
+// ClientHello is the payload the daemon sends when a client connects
+// (the anonymous struct in the daemon's SocketServer.newConnection).
+type ClientHello struct {
+	ID string
 }

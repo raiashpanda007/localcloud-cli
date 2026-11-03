@@ -56,9 +56,9 @@ func Spawn(role string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-// WaitUntilReady polls the daemon's status until it answers as the expected
-// role, the spawned process exits, the timeout passes, or ctx is cancelled.
-func WaitUntilReady(ctx context.Context, cmd *exec.Cmd, role string) (networks.Response, error) {
+// WaitUntilReady polls the role's socket until the daemon greets, the spawned
+// process exits, the timeout passes, or ctx is cancelled.
+func WaitUntilReady(ctx context.Context, cmd *exec.Cmd, role string) error {
 	exited := make(chan error, 1)
 	go func() {
 		exited <- cmd.Wait()
@@ -72,23 +72,20 @@ func WaitUntilReady(ctx context.Context, cmd *exec.Cmd, role string) (networks.R
 	for {
 		select {
 		case <-ctx.Done():
-			return networks.Response{}, ctx.Err()
+			return ctx.Err()
 		case err := <-exited:
-			return networks.Response{}, fmt.Errorf("daemon exited before it was ready (%v); see %s", err, DAEMON_LOG_PATH)
+			return fmt.Errorf("daemon exited before it was ready (%v); see %s", err, DAEMON_LOG_PATH)
 		case <-timeout.C:
-			return networks.Response{}, fmt.Errorf("daemon was not ready within %s; see %s", READY_TIMEOUT, DAEMON_LOG_PATH)
+			return fmt.Errorf("daemon was not ready within %s; see %s", READY_TIMEOUT, DAEMON_LOG_PATH)
 		case <-ticker.C:
-			resp, err := networks.Status(ctx)
+			_, err := networks.Connect(ctx, role)
 			if errors.Is(err, networks.ErrNoDaemon) {
 				continue // socket not up yet
 			}
 			if err != nil {
-				return networks.Response{}, err
+				return err
 			}
-			if resp.Role != role {
-				return resp, fmt.Errorf("spawned a %s daemon but it reports role %q (pid %d)", role, resp.Role, resp.PID)
-			}
-			return resp, nil
+			return nil
 		}
 	}
 }
