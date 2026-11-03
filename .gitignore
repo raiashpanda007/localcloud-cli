@@ -1,0 +1,26 @@
+# Build output
+/localcloud
+/localcloud-cli
+/bin/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Local AI/editor config
+CLAUDE.md
+.claude/
+
+# Dev-only settings: never commit these (e.g. LOCALCLOUD_DEV)
+.env
+.env.*
+.envrc
+dev.env
+
+# Logs
+*.log
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
